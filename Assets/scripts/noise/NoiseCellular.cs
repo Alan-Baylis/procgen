@@ -85,6 +85,8 @@ public class NoiseCellular : Noise
 	protected CellularDistanceFunctionType cellularDistanceFunction;
 	protected CellularReturnType cellularReturnType;
 
+	protected Noise noiseLookup;
+
 	/// <summary>
 	/// Set the method used for computing cellular distances.
 	/// </summary>
@@ -104,6 +106,15 @@ public class NoiseCellular : Noise
 	}
 
 	/// <summary>
+	/// Assign a pre-allocated (non-cellular) noise lookup type to be used in cellular noise methods.
+	/// </summary>
+	/// <param name="_noiseLookup">Pre-allocated noise type to use in cellular noise computations.</param>
+	public void SetNoiseLookup( Noise _noiseLookup )
+	{
+		noiseLookup = _noiseLookup;
+	}
+
+	/// <summary>
 	/// NoiseBasic Constructor.
 	/// </summary>
 	public NoiseCellular( )
@@ -111,7 +122,38 @@ public class NoiseCellular : Noise
 		noiseType = NoiseType.Cellular;
 	}
 
-	float GetCellular( float x, float y, float z )
+	/// <summary>
+	/// Get 2D cellular noise value.
+	/// </summary>
+	/// <param name="x">x</param>
+	/// <param name="y">y</param>
+	/// <returns>2D cellular noise value.</returns>
+	public override float GetNoise( float x, float y )
+	{
+		x*= frequency;
+		y*= frequency;
+
+		switch( cellularReturnType )
+		{
+			case CellularReturnType.DistanceToEdge:
+			case CellularReturnType.DistanceToEdgeXValue:
+			case CellularReturnType.DistanceToEdgeSq:
+			case CellularReturnType.DistanceToEdgeSqXValue:
+			return( CellularToEdge( x, y ) );
+
+			default:
+			return( Cellular( x, y ) );
+		}
+	}
+
+	/// <summary>
+	/// Cellular 3D noise method.
+	/// </summary>
+	/// <param name="x">x</param>
+	/// <param name="y">y</param>
+	/// <param name="z">z</param>
+	/// <returns>Result of 3D cellular noise.</returns>
+	public override float GetNoise( float x, float y, float z )
 	{
 		x*= frequency;
 		y*= frequency;
@@ -123,148 +165,35 @@ public class NoiseCellular : Noise
 			case CellularReturnType.DistanceToEdgeXValue:
 			case CellularReturnType.DistanceToEdgeSq:
 			case CellularReturnType.DistanceToEdgeSqXValue:
-				return _CellularToEdge( x, y, z );
-
-			default:
-				return _Cellular( x, y, z );
+				return( CellularToEdge( x, y, z ) );
 		}
+
+		return( Cellular( x, y, z ) );
 	}
 
-	float _CellularToEdge( float x, float y, float z )
+	/// <summary>
+	/// Cellular 4D noise method.
+	/// NOTE: Not implemented.
+	/// </summary>
+	/// <param name="x">x</param>
+	/// <param name="y">y</param>
+	/// <param name="z">z</param>
+	/// <param name="w">w</param>
+	/// <returns>Result of 4D cellular noise.</returns>
+	public override float GetNoise( float x, float y, float z, float w )
 	{
-		int xr = FastRound( x );
-		int yr = FastRound( y );
-		int zr = FastRound( z );
-
-		float distance = float.MaxValue;
-		float distance2 = float.MaxValue;
-		float newDistance;
-		float[] vec = new float [3];
-		int lutPos;
-		int xc = 0, yc = 0, zc = 0;
-
-		switch( cellularDistanceFunction )
-		{
-			case CellularDistanceFunctionType.Euclidean:
-				for( int xi = xr - 1; xi <= xr + 1; ++xi )
-				{
-					for( int yi = yr - 1; yi <= yr + 1; ++yi )
-					{
-						for( int zi = zr - 1; zi <= zr + 1; ++zi )
-						{
-							lutPos = GetLUTIndex( xi, yi, zi );
-
-							vec[0] = xi - x + LUT_Cellular3D[lutPos, 0];
-							vec[1] = yi - y + LUT_Cellular3D[lutPos, 1];
-							vec[2] = zi - z + LUT_Cellular3D[lutPos, 2];
-
-							newDistance = vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2];
-							if( newDistance < distance )
-							{
-								distance2 = distance;
-
-								distance = newDistance;
-								xc = xi;
-								yc = yi;
-								zc = zi;
-							}
-							else if( newDistance < distance2 )
-							{
-								distance2 = newDistance;
-							}
-						}
-					}
-				}
-			break;
-
-			case CellularDistanceFunctionType.Manhattan:
-				for( int xi = xr - 1; xi <= xr + 1; ++xi )
-				{
-					for( int yi = yr - 1; yi <= yr + 1; ++yi )
-					{
-						for( int zi = zr - 1; zi <= zr + 1; ++zi )
-						{
-							lutPos = GetLUTIndex( xi, yi, zi );
-
-							vec[0] = xi - x + LUT_Cellular3D[lutPos, 0];
-							vec[1] = yi - y + LUT_Cellular3D[lutPos, 1];
-							vec[2] = zi - z + LUT_Cellular3D[lutPos, 2];
-
-							newDistance = FastAbs( vec[0] ) + FastAbs( vec[1] ) + FastAbs( vec[2] );
-							if( newDistance < distance )
-							{
-								distance2 = distance;
-
-								distance = newDistance;
-								xc = xi;
-								yc = yi;
-								zc = zi;
-							}
-							else if( newDistance < distance2 )
-							{
-								distance2 = newDistance;
-							}
-						}
-					}
-				}
-			break;
-
-			case CellularDistanceFunctionType.Natural:
-				for( int xi = xr - 1; xi <= xr + 1; ++xi )
-				{
-					for( int yi = yr - 1; yi <= yr + 1; ++yi )
-					{
-						for( int zi = zr - 1; zi <= zr + 1; ++zi )
-						{
-							lutPos = GetLUTIndex( xi, yi, zi );
-
-							vec[0] = xi - x + LUT_Cellular3D[lutPos, 0];
-							vec[1] = yi - y + LUT_Cellular3D[lutPos, 1];
-							vec[2] = zi - z + LUT_Cellular3D[lutPos, 2];
-
-							newDistance = ( FastAbs( vec[0] ) + FastAbs( vec[1] ) + FastAbs( vec[2] ) )*( vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2] );
-							if( newDistance < distance )
-							{
-								distance2 = distance;
-
-								distance = newDistance;
-								xc = xi;
-								yc = yi;
-								zc = zi;
-							}
-							else if( newDistance < distance2 )
-							{
-								distance2 = newDistance;
-							}
-						}
-					}
-				}
-			break;
-
-			default:
-			break;
-		}
-
-		switch( cellularReturnType )
-		{
-			case CellularReturnType.DistanceToEdge:
-				return( Mathf.Sqrt( distance2 ) - Mathf.Sqrt( distance ) );
-			
-			case CellularReturnType.DistanceToEdgeXValue:
-				return( ( Mathf.Sqrt( distance2 ) - Mathf.Sqrt( distance ) )*NoiseBasic.LUT_Value[GetLUTIndex( xc, yc, zc )] );
-
-			case CellularReturnType.DistanceToEdgeSq:
-				return( distance2 - distance );
-
-			case CellularReturnType.DistanceToEdgeSqXValue:
-				return( ( distance2 - distance )*NoiseBasic.LUT_Value[GetLUTIndex( xc, yc, zc )] );
-
-			default:
-				return 0.0f;
-		}
+		// Not implemented.
+		return 0.0f;
 	}
 
-	float GetCellularHQ( float x, float y, float z )
+	/// <summary>
+	/// Cellular 3D noise method (high-quality).
+	/// </summary>
+	/// <param name="x">x</param>
+	/// <param name="y">y</param>
+	/// <param name="z">z</param>
+	/// <returns>Result of high-quality 3D cellular noise.</returns>
+	public virtual float GetNoise_HQ( float x, float y, float z )
 	{
 		x*= frequency;
 		y*= frequency;
@@ -276,296 +205,19 @@ public class NoiseCellular : Noise
 			case CellularReturnType.DistanceToEdgeXValue:
 			case CellularReturnType.DistanceToEdgeSq:
 			case CellularReturnType.DistanceToEdgeSqXValue:
-				return( _CellularToEdgeHQ( x, y, z ) );
-
-			default:
-				return( _CellularHQ( x, y, z ) );
+				return( CellularToEdgeHQ( x, y, z ) );
 		}
+
+		return( CellularHQ( x, y, z ) );
 	}
 
-	float _CellularHQ( float x, float y, float z )
-	{
-		int xr = FastRound( x );
-		int yr = FastRound( y );
-		int zr = FastRound( z );
-
-		float distance = float.MaxValue;
-		float newDistance = 0.0f;
-		float[] vec = new float [3];
-		int lutPos = 0;
-		int xc = 0;
-		int yc = 0;
-		int zc = 0;
-
-		switch( cellularDistanceFunction )
-		{
-			case CellularDistanceFunctionType.Euclidean:
-				for( int xi = xr - 2; xi <= xr + 2; ++xi )
-				{
-					for( int yi = yr - 2; yi <= yr + 2; ++yi )
-					{
-						for( int zi = zr - 2; zi <= zr + 2; ++zi )
-						{
-							lutPos = GetLUTIndex( xi, yi, zi );
-
-							vec[0] = xi - x + LUT_Cellular3D_HQ[lutPos, 0];
-							vec[1] = yi - y + LUT_Cellular3D_HQ[lutPos, 1];
-							vec[2] = zi - z + LUT_Cellular3D_HQ[lutPos, 2];
-
-							newDistance = vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2];
-							if( newDistance < distance )
-							{
-								distance = newDistance;
-								xc = xi;
-								yc = yi;
-								zc = zi;
-							}
-						}
-					}
-				}
-			break;
-
-			case CellularDistanceFunctionType.Manhattan:
-				for( int xi = xr - 2; xi <= xr + 2; ++xi )
-				{
-					for( int yi = yr - 2; yi <= yr + 2; ++yi )
-					{
-						for( int zi = zr - 2; zi <= zr + 2; ++zi )
-						{
-							lutPos = GetLUTIndex( xi, yi, zi );
-
-							vec[0] = xi - x + LUT_Cellular3D_HQ[lutPos, 0];
-							vec[1] = yi - y + LUT_Cellular3D_HQ[lutPos, 1];
-							vec[2] = zi - z + LUT_Cellular3D_HQ[lutPos, 2];
-
-							newDistance = FastAbs( vec[0] ) + FastAbs( vec[1] ) + FastAbs( vec[2] );
-							if( newDistance < distance )
-							{
-								distance = newDistance;
-								xc = xi;
-								yc = yi;
-								zc = zi;
-							}
-						}
-					}
-				}
-			break;
-
-			case CellularDistanceFunctionType.Natural:
-				for( int xi = xr - 2; xi <= xr + 2; xi++ )
-				{
-					for( int yi = yr - 2; yi <= yr + 2; yi++ )
-					{
-						for( int zi = zr - 2; zi <= zr + 2; zi++ )
-						{
-							lutPos = GetLUTIndex( xi, yi, zi );
-
-							vec[0] = xi - x + LUT_Cellular3D_HQ[lutPos, 0];
-							vec[1] = yi - y + LUT_Cellular3D_HQ[lutPos, 1];
-							vec[2] = zi - z + LUT_Cellular3D_HQ[lutPos, 2];
-
-							newDistance = ( FastAbs( vec[0] ) + FastAbs( vec[1] ) + FastAbs( vec[2] ) )*( vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2] );
-							if( newDistance < distance )
-							{
-								distance = newDistance;
-								xc = xi;
-								yc = yi;
-								zc = zi;
-							}
-						}
-					}
-				}
-			break;
-
-			default:
-			break;
-		}
-
-		switch( cellularReturnType )
-		{
-			case CellularReturnType.CellValue:
-				return NoiseBasic.LUT_Value[GetLUTIndex( xc, yc, zc )];
-
-			case CellularReturnType.NoiseLookup:
-				if( !cellularNoiseLookup )
-					return 0;
-
-				lutPos = GetLUTIndex( xc, yc, zc );
-				return( cellularNoiseLookup->GetNoise( xc + LUT_Cellular3D_HQ[lutPos, 0], yc + LUT_Cellular3D_HQ[lutPos, 1], zc + LUT_Cellular3D_HQ[lutPos, 2] ) );
-
-			case CellularReturnType.DistanceToCenter:
-				return( Mathf.Sqrt( distance ) );
-			
-			case CellularReturnType.DistanceToCenterXValue:
-				return( ( 1.0f - Mathf.Sqrt( distance ) )*NoiseBasic.LUT_Value[GetLUTIndex( xc, yc, zc )] );
-
-			case CellularReturnType.DistanceToCenterSq:
-				return distance;
-			
-			case CellularReturnType.DistanceToCenterSqXValue:
-				return( ( 1.0f - distance )*NoiseBasic.LUT_Value[GetLUTIndex( xc, yc, zc )] );
-
-			default:
-				return 0.0f;
-		}
-	}
-
-	float _CellularToEdgeHQ( float x, float y, float z )
-	{
-		int xr = FastRound( x );
-		int yr = FastRound( y );
-		int zr = FastRound( z );
-
-		float distance = float.MaxValue;
-		float distance2 = float.MaxValue;
-		float newDistance;
-		float[] vec = new float [3];
-		int lutPos = 0;
-		int xc = 0;
-		int yc = 0;
-		int zc = 0;
-
-		switch( cellularDistanceFunction )
-		{
-			case CellularDistanceFunctionType.Euclidean:
-				for( int xi = xr - 2; xi <= xr + 2; ++xi )
-				{
-					for( int yi = yr - 2; yi <= yr + 2; ++yi )
-					{
-						for( int zi = zr - 2; zi <= zr + 2; ++zi )
-						{
-							lutPos = GetLUTIndex( xi, yi, zi );
-
-							vec[0] = xi - x + LUT_Cellular3D_HQ[lutPos, 0];
-							vec[1] = yi - y + LUT_Cellular3D_HQ[lutPos, 1];
-							vec[2] = zi - z + LUT_Cellular3D_HQ[lutPos, 2];
-
-							newDistance = vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2];
-
-							if( newDistance < distance )
-							{
-								distance2 = distance;
-
-								distance = newDistance;
-								xc = xi;
-								yc = yi;
-								zc = zi;
-							}
-							else if( newDistance < distance2 )
-							{
-								distance2 = newDistance;
-							}
-						}
-					}
-				}
-			break;
-
-			case CellularDistanceFunctionType.Manhattan:
-				for( int xi = xr - 2; xi <= xr + 2; ++xi )
-				{
-					for( int yi = yr - 2; yi <= yr + 2; ++yi )
-					{
-						for( int zi = zr - 2; zi <= zr + 2; ++zi )
-						{
-							lutPos = GetLUTIndex( xi, yi, zi );
-
-							vec[0] = xi - x + LUT_Cellular3D_HQ[lutPos, 0];
-							vec[1] = yi - y + LUT_Cellular3D_HQ[lutPos, 1];
-							vec[2] = zi - z + LUT_Cellular3D_HQ[lutPos, 2];
-
-							newDistance = FastAbs( vec[0] ) + FastAbs( vec[1] ) + FastAbs( vec[2] );
-							if( newDistance < distance )
-							{
-								distance2 = distance;
-
-								distance = newDistance;
-								xc = xi;
-								yc = yi;
-								zc = zi;
-							}
-							else if( newDistance < distance2 )
-							{
-								distance2 = newDistance;
-							}
-						}
-					}
-				}
-			break;
-
-			case CellularDistanceFunctionType.Natural:
-				for( int xi = xr - 2; xi <= xr + 2; ++xi )
-				{
-					for( int yi = yr - 2; yi <= yr + 2; ++yi )
-					{
-						for( int zi = zr - 2; zi <= zr + 2; ++zi )
-						{
-							lutPos = GetLUTIndex( xi, yi, zi );
-
-							vec[0] = xi - x + LUT_Cellular3D_HQ[lutPos, 0];
-							vec[1] = yi - y + LUT_Cellular3D_HQ[lutPos, 1];
-							vec[2] = zi - z + LUT_Cellular3D_HQ[lutPos, 2];
-
-							newDistance = ( FastAbs( vec[0] ) + FastAbs( vec[1] ) + FastAbs( vec[2] ) )*( vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2] );
-							if( newDistance < distance )
-							{
-								distance2 = distance;
-
-								distance = newDistance;
-								xc = xi;
-								yc = yi;
-								zc = zi;
-							}
-							else if( newDistance < distance2 )
-							{
-								distance2 = newDistance;
-							}
-						}
-					}
-				}
-			break;
-
-			default:
-			break;
-		}
-
-		switch( cellularReturnType )
-		{
-			case CellularReturnType.DistanceToEdge:
-				return( Mathf.Sqrt( distance2 ) - Mathf.Sqrt( distance ) );
-
-			case CellularReturnType.DistanceToEdgeXValue:
-				return( ( Mathf.Sqrt( distance2 ) - Mathf.Sqrt( distance ) )*NoiseBasic.LUT_Value[GetLUTIndex( xc, yc, zc )] );
-
-			case CellularReturnType.DistanceToEdgeSq:
-				return( distance2 - distance );
-			
-			case CellularReturnType.DistanceToEdgeSqXValue:
-				return( ( distance2 - distance )*NoiseBasic.LUT_Value[GetLUTIndex( xc, yc, zc )] );
-
-			default:
-				return 0.0f;
-		}
-	}
-
-	float GetCellular( float x, float y )
-	{
-		x*= frequency;
-		y*= frequency;
-
-		switch( cellularReturnType )
-		{
-			case CellularReturnType.DistanceToEdge:
-			case CellularReturnType.DistanceToEdgeXValue:
-			case CellularReturnType.DistanceToEdgeSq:
-			case CellularReturnType.DistanceToEdgeSqXValue:
-				return _CellularToEdge( x, y );
-	
-			default:
-				return _Cellular( x, y );
-		}
-	}
-
-	float _Cellular( float x, float y )
+	/// <summary>
+	/// Get 2D cellular noise value.
+	/// </summary>
+	/// <param name="x">x</param>
+	/// <param name="y">y</param>
+	/// <returns>2D cellular noise value.</returns>
+	private float Cellular( float x, float y )
 	{
 		int xr = FastRound( x );
 		int yr = FastRound( y );
@@ -650,11 +302,11 @@ public class NoiseCellular : Noise
 				return NoiseBasic.LUT_Value[GetLUTIndex( xc, yc )];
 
 			case CellularReturnType.NoiseLookup:
-				if( !cellularNoiseLookup )
+				if( noiseLookup == null )
 					return 0;
 
 				lutPos = GetLUTIndex( xc, yc );
-				return( cellularNoiseLookup->GetNoise( xc + LUT_Cellular2D[lutPos, 0], yc + LUT_Cellular2D[lutPos, 1] ) );
+				return( noiseLookup.GetNoise( xc + LUT_Cellular2D[lutPos, 0], yc + LUT_Cellular2D[lutPos, 1] ) );
 
 			case CellularReturnType.DistanceToCenter:
 				return( Mathf.Sqrt( distance ) );
@@ -680,7 +332,7 @@ public class NoiseCellular : Noise
 	/// <param name="y">y</param>
 	/// <param name="z">z</param>
 	/// <returns>Result of 3D noise.</returns>
-	private float GetValue( float x, float y, float z )
+	private float Cellular( float x, float y, float z )
 	{
 		int xr = FastRound( x );
 		int yr = FastRound( y );
@@ -784,11 +436,11 @@ public class NoiseCellular : Noise
 				return( NoiseBasic.LUT_Value[GetLUTIndex( xc, yc, zc )] );
 
 			case CellularReturnType.NoiseLookup:
-				if( !cellularNoiseLookup )
+				if( noiseLookup == null )
 					return 0;
 
 				lutPos = GetLUTIndex( xc, yc, zc );
-				return( cellularNoiseLookup->GetNoise( xc + LUT_Cellular3D[lutPos, 0], yc + LUT_Cellular3D[lutPos, 1], zc + LUT_Cellular3D[lutPos, 2] ) );
+				return( noiseLookup.GetNoise( xc + LUT_Cellular3D[lutPos, 0], yc + LUT_Cellular3D[lutPos, 1], zc + LUT_Cellular3D[lutPos, 2] ) );
 
 			case CellularReturnType.DistanceToCenter:
 				return( Mathf.Sqrt( distance ) );
@@ -801,15 +453,262 @@ public class NoiseCellular : Noise
 			
 			case CellularReturnType.DistanceToCenterSqXValue:
 				return( ( 1.0f - distance )*NoiseBasic.LUT_Value[GetLUTIndex( xc, yc, zc )] );
-
-			default:
-				return 0.0f;
 		}
 
 		return 0.0f;
 	}
 
-	float _CellularToEdge( float x, float y )
+	/// <summary>
+	/// Get 2D cellular noise value (high-quality).
+	/// </summary>
+	/// <param name="x">x</param>
+	/// <param name="y">y</param>
+	/// <returns>Gets a high-quality 2D cellular noise value.</returns>
+	private float Cellular_HQ( float x, float y )
+	{
+		int xr = FastRound( x );
+		int yr = FastRound( y );
+
+		float distance = float.MaxValue;
+		float newDistance = 0.0f;
+		float[] vec = new float [2];
+		int lutPos = 0;
+		int xc = 0;
+		int yc = 0;
+
+		switch( cellularDistanceFunction )
+		{
+			default:
+			case CellularDistanceFunctionType.Euclidean:
+				for( int xi = xr - 2; xi <= xr + 2; ++xi )
+				{
+					for( int yi = yr - 2; yi <= yr + 2; ++yi )
+					{
+						lutPos = GetLUTIndex( xi, yi );
+
+						vec[0] = xi - x + LUT_Cellular2D_HQ[lutPos, 0];
+						vec[1] = yi - y + LUT_Cellular2D_HQ[lutPos, 1];
+
+						newDistance = vec[0]*vec[0] + vec[1]*vec[1];
+
+						if( newDistance < distance )
+						{
+							distance = newDistance;
+							xc = xi;
+							yc = yi;
+						}
+					}
+				}
+			break;
+
+			case CellularDistanceFunctionType.Manhattan:
+				for( int xi = xr - 2; xi <= xr + 2; ++xi )
+				{
+					for( int yi = yr - 2; yi <= yr + 2; ++yi )
+					{
+						lutPos = GetLUTIndex( xi, yi );
+
+						vec[0] = xi - x + LUT_Cellular2D_HQ[lutPos, 0];
+						vec[1] = yi - y + LUT_Cellular2D_HQ[lutPos, 1];
+
+						newDistance = FastAbs( vec[0] ) + FastAbs( vec[1] );
+
+						if( newDistance < distance )
+						{
+							distance = newDistance;
+							xc = xi;
+							yc = yi;
+						}
+					}
+				}
+			break;
+
+			case CellularDistanceFunctionType.Natural:
+				for( int xi = xr - 2; xi <= xr + 2; ++xi )
+				{
+					for( int yi = yr - 2; yi <= yr + 2; ++yi )
+					{
+						lutPos = GetLUTIndex( xi, yi );
+
+						vec[0] = xi - x + LUT_Cellular2D_HQ[lutPos, 0];
+						vec[1] = yi - y + LUT_Cellular2D_HQ[lutPos, 1];
+
+						newDistance = ( FastAbs( vec[0] ) + FastAbs( vec[1] ) )*( vec[0]*vec[0] + vec[1]*vec[1] );
+
+						if( newDistance < distance )
+						{
+							distance = newDistance;
+							xc = xi;
+							yc = yi;
+						}
+					}
+				}
+			break;
+		}
+
+		switch( cellularReturnType )
+		{
+			case CellularReturnType.CellValue:
+				return( NoiseBasic.LUT_Value[GetLUTIndex( xc, yc )] );
+
+			case CellularReturnType.NoiseLookup:
+				if( noiseLookup == null )
+					return 0;
+
+				lutPos = GetLUTIndex( xc, yc );
+				return( noiseLookup.GetNoise( xc + LUT_Cellular2D_HQ[lutPos, 0], yc + LUT_Cellular2D_HQ[lutPos, 1] ) );
+
+			case CellularReturnType.DistanceToCenter:
+				return( Mathf.Sqrt( distance ) );
+			
+			case CellularReturnType.DistanceToCenterXValue:
+				return( ( 1.0f - Mathf.Sqrt( distance ) )*NoiseBasic.LUT_Value[GetLUTIndex( xc, yc )] );
+
+			case CellularReturnType.DistanceToCenterSq:
+				return distance;
+
+			case CellularReturnType.DistanceToCenterSqXValue:
+				return( ( 1.0f - distance )*NoiseBasic.LUT_Value[GetLUTIndex( xc, yc )] );
+		}
+
+		return 0.0f;
+	}
+
+	/// <summary>
+	/// Get cellular noise value (high-quality).
+	/// </summary>
+	/// <param name="x">x</param>
+	/// <param name="y">y</param>
+	/// <param name="z">z</param>
+	/// <returns>Gets a high-quality cellular noise value.</returns>
+	private float CellularHQ( float x, float y, float z )
+	{
+		int xr = FastRound( x );
+		int yr = FastRound( y );
+		int zr = FastRound( z );
+
+		float distance = float.MaxValue;
+		float newDistance = 0.0f;
+		float[] vec = new float [3];
+		int lutPos = 0;
+		int xc = 0;
+		int yc = 0;
+		int zc = 0;
+
+		switch( cellularDistanceFunction )
+		{
+			case CellularDistanceFunctionType.Euclidean:
+				for( int xi = xr - 2; xi <= xr + 2; ++xi )
+				{
+					for( int yi = yr - 2; yi <= yr + 2; ++yi )
+					{
+						for( int zi = zr - 2; zi <= zr + 2; ++zi )
+						{
+							lutPos = GetLUTIndex( xi, yi, zi );
+
+							vec[0] = xi - x + LUT_Cellular3D_HQ[lutPos, 0];
+							vec[1] = yi - y + LUT_Cellular3D_HQ[lutPos, 1];
+							vec[2] = zi - z + LUT_Cellular3D_HQ[lutPos, 2];
+
+							newDistance = vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2];
+							if( newDistance < distance )
+							{
+								distance = newDistance;
+								xc = xi;
+								yc = yi;
+								zc = zi;
+							}
+						}
+					}
+				}
+			break;
+
+			case CellularDistanceFunctionType.Manhattan:
+				for( int xi = xr - 2; xi <= xr + 2; ++xi )
+				{
+					for( int yi = yr - 2; yi <= yr + 2; ++yi )
+					{
+						for( int zi = zr - 2; zi <= zr + 2; ++zi )
+						{
+							lutPos = GetLUTIndex( xi, yi, zi );
+
+							vec[0] = xi - x + LUT_Cellular3D_HQ[lutPos, 0];
+							vec[1] = yi - y + LUT_Cellular3D_HQ[lutPos, 1];
+							vec[2] = zi - z + LUT_Cellular3D_HQ[lutPos, 2];
+
+							newDistance = FastAbs( vec[0] ) + FastAbs( vec[1] ) + FastAbs( vec[2] );
+							if( newDistance < distance )
+							{
+								distance = newDistance;
+								xc = xi;
+								yc = yi;
+								zc = zi;
+							}
+						}
+					}
+				}
+			break;
+
+			case CellularDistanceFunctionType.Natural:
+				for( int xi = xr - 2; xi <= xr + 2; xi++ )
+				{
+					for( int yi = yr - 2; yi <= yr + 2; yi++ )
+					{
+						for( int zi = zr - 2; zi <= zr + 2; zi++ )
+						{
+							lutPos = GetLUTIndex( xi, yi, zi );
+
+							vec[0] = xi - x + LUT_Cellular3D_HQ[lutPos, 0];
+							vec[1] = yi - y + LUT_Cellular3D_HQ[lutPos, 1];
+							vec[2] = zi - z + LUT_Cellular3D_HQ[lutPos, 2];
+
+							newDistance = ( FastAbs( vec[0] ) + FastAbs( vec[1] ) + FastAbs( vec[2] ) )*( vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2] );
+							if( newDistance < distance )
+							{
+								distance = newDistance;
+								xc = xi;
+								yc = yi;
+								zc = zi;
+							}
+						}
+					}
+				}
+			break;
+
+			default:
+			break;
+		}
+
+		switch( cellularReturnType )
+		{
+			case CellularReturnType.CellValue:
+				return NoiseBasic.LUT_Value[GetLUTIndex( xc, yc, zc )];
+
+			case CellularReturnType.NoiseLookup:
+				if( noiseLookup == null )
+					return 0;
+
+				lutPos = GetLUTIndex( xc, yc, zc );
+				return( noiseLookup.GetNoise( xc + LUT_Cellular3D_HQ[lutPos, 0], yc + LUT_Cellular3D_HQ[lutPos, 1], zc + LUT_Cellular3D_HQ[lutPos, 2] ) );
+
+			case CellularReturnType.DistanceToCenter:
+				return( Mathf.Sqrt( distance ) );
+			
+			case CellularReturnType.DistanceToCenterXValue:
+				return( ( 1.0f - Mathf.Sqrt( distance ) )*NoiseBasic.LUT_Value[GetLUTIndex( xc, yc, zc )] );
+
+			case CellularReturnType.DistanceToCenterSq:
+				return distance;
+			
+			case CellularReturnType.DistanceToCenterSqXValue:
+				return( ( 1.0f - distance )*NoiseBasic.LUT_Value[GetLUTIndex( xc, yc, zc )] );
+
+			default:
+				return 0.0f;
+		}
+	}
+
+	private float CellularToEdge( float x, float y )
 	{
 		int xr = FastRound( x );
 		int yr = FastRound( y );
@@ -817,345 +716,515 @@ public class NoiseCellular : Noise
 		float distance = float.MaxValue;
 		float distance2 = float.MaxValue;
 		float newDistance = 0.0f;
-		float vec[2];
-		int lutPos;
-		int xc = 0, yc = 0;
+		float[] vec = new float [2];
+		int lutPos = 0;
+		int xc = 0;
+		int yc = 0;
 
-		switch( m_cellularDistanceFunction )
+		switch( cellularDistanceFunction )
 		{
 			default:
-			case FastNoise::Euclidean:
-			for( int xi = xr - 1; xi <= xr + 1; xi++ )
-			{
-				for( int yi = yr - 1; yi <= yr + 1; yi++ )
+			case CellularDistanceFunctionType.Euclidean:
+				for( int xi = xr - 1; xi <= xr + 1; xi++ )
 				{
-					lutPos = CoordLUTIndex( m_seed, xi, yi );
-
-					vec[0] = xi - x + CELLULAR2D_LUT[lutPos][0];
-					vec[1] = yi - y + CELLULAR2D_LUT[lutPos][1];
-
-					newDistance = vec[0] * vec[0] + vec[1] * vec[1];
-
-					if( newDistance < distance )
+					for( int yi = yr - 1; yi <= yr + 1; yi++ )
 					{
-						distance2 = distance;
+						lutPos = GetLUTIndex( xi, yi );
 
-						distance = newDistance;
-						xc = xi;
-						yc = yi;
-					}
-					else if( newDistance < distance2 )
-					{
-						distance2 = newDistance;
+						vec[0] = xi - x + LUT_Cellular2D[lutPos, 0];
+						vec[1] = yi - y + LUT_Cellular2D[lutPos, 1];
+
+						newDistance = vec[0]*vec[0] + vec[1]*vec[1];
+
+						if( newDistance < distance )
+						{
+							distance2 = distance;
+
+							distance = newDistance;
+							xc = xi;
+							yc = yi;
+						}
+						else if( newDistance < distance2 )
+						{
+							distance2 = newDistance;
+						}
 					}
 				}
-			}
 			break;
-			case FastNoise::Manhattan:
-			for( int xi = xr - 1; xi <= xr + 1; xi++ )
-			{
-				for( int yi = yr - 1; yi <= yr + 1; yi++ )
+
+			case CellularDistanceFunctionType.Manhattan:
+				for( int xi = xr - 1; xi <= xr + 1; xi++ )
 				{
-					lutPos = CoordLUTIndex( m_seed, xi, yi );
-
-					vec[0] = xi - x + CELLULAR2D_LUT[lutPos][0];
-					vec[1] = yi - y + CELLULAR2D_LUT[lutPos][1];
-
-					newDistance = FastAbs( vec[0] ) + FastAbs( vec[1] );
-
-					if( newDistance < distance )
+					for( int yi = yr - 1; yi <= yr + 1; yi++ )
 					{
-						distance2 = distance;
+						lutPos = GetLUTIndex( xi, yi );
 
-						distance = newDistance;
-						xc = xi;
-						yc = yi;
-					}
-					else if( newDistance < distance2 )
-					{
-						distance2 = newDistance;
+						vec[0] = xi - x + LUT_Cellular2D[lutPos, 0];
+						vec[1] = yi - y + LUT_Cellular2D[lutPos, 1];
+
+						newDistance = FastAbs( vec[0] ) + FastAbs( vec[1] );
+
+						if( newDistance < distance )
+						{
+							distance2 = distance;
+
+							distance = newDistance;
+							xc = xi;
+							yc = yi;
+						}
+						else if( newDistance < distance2 )
+						{
+							distance2 = newDistance;
+						}
 					}
 				}
-			}
 			break;
-			case FastNoise::Natural:
-			for( int xi = xr - 1; xi <= xr + 1; xi++ )
-			{
-				for( int yi = yr - 1; yi <= yr + 1; yi++ )
+
+			case CellularDistanceFunctionType.Natural:
+				for( int xi = xr - 1; xi <= xr + 1; xi++ )
 				{
-					lutPos = CoordLUTIndex( m_seed, xi, yi );
-
-					vec[0] = xi - x + CELLULAR2D_LUT[lutPos][0];
-					vec[1] = yi - y + CELLULAR2D_LUT[lutPos][1];
-
-					newDistance = ( FastAbs( vec[0] ) + FastAbs( vec[1] ) ) * ( vec[0] * vec[0] + vec[1] * vec[1] );
-
-					if( newDistance < distance )
+					for( int yi = yr - 1; yi <= yr + 1; yi++ )
 					{
-						distance2 = distance;
+						lutPos = GetLUTIndex( xi, yi );
 
-						distance = newDistance;
-						xc = xi;
-						yc = yi;
-					}
-					else if( newDistance < distance2 )
-					{
-						distance2 = newDistance;
+						vec[0] = xi - x + LUT_Cellular2D[lutPos, 0];
+						vec[1] = yi - y + LUT_Cellular2D[lutPos, 1];
+
+						newDistance = ( FastAbs( vec[0] ) + FastAbs( vec[1] ) )*( vec[0]*vec[0] + vec[1]*vec[1] );
+
+						if( newDistance < distance )
+						{
+							distance2 = distance;
+
+							distance = newDistance;
+							xc = xi;
+							yc = yi;
+						}
+						else if( newDistance < distance2 )
+						{
+							distance2 = newDistance;
+						}
 					}
 				}
-			}
 			break;
 		}
 
-		switch( m_cellularReturnType )
+		switch( cellularReturnType )
 		{
-			case FastNoise::Distance2Edge:
-			return sqrtf( distance2 ) - sqrtf( distance );
-			case FastNoise::Distance2EdgeXValue:
-			return ( sqrtf( distance2 ) - sqrtf( distance ) ) * VAL_LUT[CoordLUTIndex( m_seed, xc, yc )];
+			case CellularReturnType.DistanceToEdge:
+				return( Mathf.Sqrt( distance2 ) - Mathf.Sqrt( distance ) );
 
-			case FastNoise::Distance2EdgeSq:
-			return distance2 - distance;
-			case FastNoise::Distance2EdgeSqXValue:
-			return ( distance2 - distance ) * VAL_LUT[CoordLUTIndex( m_seed, xc, yc )];
-			default:
-			return 0.0f;
+			case CellularReturnType.DistanceToEdgeXValue:
+				return( ( Mathf.Sqrt( distance2 ) - Mathf.Sqrt( distance ) )*NoiseBasic.LUT_Value[GetLUTIndex( xc, yc )] );
+
+			case CellularReturnType.DistanceToEdgeSq:
+				return( distance2 - distance );
+
+			case CellularReturnType.DistanceToEdgeSqXValue:
+				return( ( distance2 - distance )*NoiseBasic.LUT_Value[GetLUTIndex( xc, yc )] );
 		}
+
+		return 0.0f;
 	}
 
-	float FastNoise::GetCellularHQ( float x, float y )
-	{
-		x *= m_frequency;
-		y *= m_frequency;
-
-		switch( m_cellularReturnType )
-		{
-			case Distance2Edge:
-			case Distance2EdgeXValue:
-			case Distance2EdgeSq:
-			case Distance2EdgeSqXValue:
-			return _Cellular2EdgeHQ( x, y );
-			default:
-			return _CellularHQ( x, y );
-		}
-	}
-
-	float FastNoise::_CellularHQ( float x, float y )
+	/// <summary>
+	/// Cellular 2D noise to an edge.
+	/// </summary>
+	/// <param name="x">x</param>
+	/// <param name="y">y</param>
+	/// <returns>Noise result of 2D cellular edge noise.</returns>
+	private float CellularToEdgeHQ( float x, float y )
 	{
 		int xr = FastRound( x );
 		int yr = FastRound( y );
 
-		float distance = 999999.f;
-		float newDistance;
-		float vec[2];
-		int lutPos;
-		int xc, yc;
+		float distance = float.MaxValue;
+		float distance2 = float.MaxValue;
+		float newDistance = 0.0f;
+		float[] vec = new float [2];
+		int lutPos = 0;
+		int xc = 0;
+		int yc = 0;
 
-		switch( m_cellularDistanceFunction )
+		switch( cellularDistanceFunction )
 		{
 			default:
-			case Euclidean:
-			for( int xi = xr - 2; xi <= xr + 2; xi++ )
-			{
-				for( int yi = yr - 2; yi <= yr + 2; yi++ )
+			case CellularDistanceFunctionType.Euclidean:
+				for( int xi = xr - 2; xi <= xr + 2; ++xi )
 				{
-					lutPos = CoordLUTIndex( m_seed, xi, yi );
-
-					vec[0] = xi - x + CELLULAR2D_HQ_LUT[lutPos][0];
-					vec[1] = yi - y + CELLULAR2D_HQ_LUT[lutPos][1];
-
-					newDistance = vec[0] * vec[0] + vec[1] * vec[1];
-
-					if( newDistance < distance )
+					for( int yi = yr - 2; yi <= yr + 2; ++yi )
 					{
-						distance = newDistance;
-						xc = xi;
-						yc = yi;
+						lutPos = GetLUTIndex( xi, yi );
+
+						vec[0] = xi - x + LUT_Cellular2D_HQ[lutPos, 0];
+						vec[1] = yi - y + LUT_Cellular2D_HQ[lutPos, 1];
+
+						newDistance = vec[0]*vec[0] + vec[1]*vec[1];
+						if( newDistance < distance )
+						{
+							distance2 = distance;
+
+							distance = newDistance;
+							xc = xi;
+							yc = yi;
+						}
+						else if( newDistance < distance2 )
+						{
+							distance2 = newDistance;
+						}
 					}
 				}
-			}
 			break;
-			case Manhattan:
-			for( int xi = xr - 2; xi <= xr + 2; xi++ )
-			{
-				for( int yi = yr - 2; yi <= yr + 2; yi++ )
+
+			case CellularDistanceFunctionType.Manhattan:
+				for( int xi = xr - 2; xi <= xr + 2; ++xi )
 				{
-					lutPos = CoordLUTIndex( m_seed, xi, yi );
-
-					vec[0] = xi - x + CELLULAR2D_HQ_LUT[lutPos][0];
-					vec[1] = yi - y + CELLULAR2D_HQ_LUT[lutPos][1];
-
-					newDistance = FastAbs( vec[0] ) + FastAbs( vec[1] );
-
-					if( newDistance < distance )
+					for( int yi = yr - 2; yi <= yr + 2; ++yi )
 					{
-						distance = newDistance;
-						xc = xi;
-						yc = yi;
+						lutPos = GetLUTIndex( xi, yi );
+
+						vec[0] = xi - x + LUT_Cellular2D_HQ[lutPos, 0];
+						vec[1] = yi - y + LUT_Cellular2D_HQ[lutPos, 1];
+
+						newDistance = FastAbs( vec[0] ) + FastAbs( vec[1] );
+						if( newDistance < distance )
+						{
+							distance2 = distance;
+
+							distance = newDistance;
+							xc = xi;
+							yc = yi;
+						}
+						else if( newDistance < distance2 )
+						{
+							distance2 = newDistance;
+						}
 					}
 				}
-			}
 			break;
-			case Natural:
-			for( int xi = xr - 2; xi <= xr + 2; xi++ )
-			{
-				for( int yi = yr - 2; yi <= yr + 2; yi++ )
+
+			case CellularDistanceFunctionType.Natural:
+				for( int xi = xr - 2; xi <= xr + 2; ++xi )
 				{
-					lutPos = CoordLUTIndex( m_seed, xi, yi );
-
-					vec[0] = xi - x + CELLULAR2D_HQ_LUT[lutPos][0];
-					vec[1] = yi - y + CELLULAR2D_HQ_LUT[lutPos][1];
-
-					newDistance = ( FastAbs( vec[0] ) + FastAbs( vec[1] ) ) * ( vec[0] * vec[0] + vec[1] * vec[1] );
-
-					if( newDistance < distance )
+					for( int yi = yr - 2; yi <= yr + 2; ++yi )
 					{
-						distance = newDistance;
-						xc = xi;
-						yc = yi;
+						lutPos = GetLUTIndex( xi, yi );
+
+						vec[0] = xi - x + LUT_Cellular2D_HQ[lutPos, 0];
+						vec[1] = yi - y + LUT_Cellular2D_HQ[lutPos, 1];
+
+						newDistance = ( FastAbs( vec[0] ) + FastAbs( vec[1] ) )*( vec[0]*vec[0] + vec[1]*vec[1] );
+						if( newDistance < distance )
+						{
+							distance2 = distance;
+
+							distance = newDistance;
+							xc = xi;
+							yc = yi;
+						}
+						else if( newDistance < distance2 )
+						{
+							distance2 = newDistance;
+						}
 					}
 				}
-			}
 			break;
 		}
 
-		switch( m_cellularReturnType )
+		switch( cellularReturnType )
 		{
-			case FastNoise::CellValue:
-			return VAL_LUT[CoordLUTIndex( m_seed, xc, yc )];
+			case CellularReturnType.DistanceToEdge:
+				return( Mathf.Sqrt( distance2 ) - Mathf.Sqrt( distance ) );
+			case CellularReturnType.DistanceToEdgeXValue:
+				return( ( Mathf.Sqrt( distance2 ) - Mathf.Sqrt( distance ) )*NoiseBasic.LUT_Value[GetLUTIndex( xc, yc )] );
+			case CellularReturnType.DistanceToEdgeSq:
+				return( distance2 - distance );
+			case CellularReturnType.DistanceToEdgeSqXValue:
+				return( ( distance2 - distance )*NoiseBasic.LUT_Value[GetLUTIndex( xc, yc )] );
+		}
 
-			case FastNoise::NoiseLookup:
-			if( !m_cellularNoiseLookup )
-				return 0;
+		return 0.0f;
+	}
 
-			lutPos = CoordLUTIndex( m_seed, xc, yc );
-			return m_cellularNoiseLookup->GetNoise( xc + CELLULAR2D_HQ_LUT[lutPos][0], yc + CELLULAR2D_HQ_LUT[lutPos][1] );
+	/// <summary>
+	/// Return the cellular noise result to the edge (?).
+	/// </summary>
+	/// <param name="x">x</param>
+	/// <param name="y">y</param>
+	/// <param name="z">z</param>
+	/// <returns>Cellular to edge noise result.</returns>
+	private float CellularToEdge( float x, float y, float z )
+	{
+		int xr = FastRound( x );
+		int yr = FastRound( y );
+		int zr = FastRound( z );
 
-			case FastNoise::Distance2Center:
-			return sqrtf( distance );
-			case FastNoise::Distance2CenterXValue:
-			return ( 1.0f - sqrtf( distance ) ) * VAL_LUT[CoordLUTIndex( m_seed, xc, yc )];
+		float distance = float.MaxValue;
+		float distance2 = float.MaxValue;
+		float newDistance;
+		float[] vec = new float[3];
+		int lutPos;
+		int xc = 0, yc = 0, zc = 0;
 
-			case FastNoise::Distance2CenterSq:
-			return distance;
-			case FastNoise::Distance2CenterSqXValue:
-			return ( 1.0f - distance ) * VAL_LUT[CoordLUTIndex( m_seed, xc, yc )];
+		switch( cellularDistanceFunction )
+		{
+			case CellularDistanceFunctionType.Euclidean:
+				for( int xi = xr - 1; xi <= xr + 1; ++xi )
+				{
+					for( int yi = yr - 1; yi <= yr + 1; ++yi )
+					{
+						for( int zi = zr - 1; zi <= zr + 1; ++zi )
+						{
+							lutPos = GetLUTIndex( xi, yi, zi );
+
+							vec[0] = xi - x + LUT_Cellular3D[lutPos, 0];
+							vec[1] = yi - y + LUT_Cellular3D[lutPos, 1];
+							vec[2] = zi - z + LUT_Cellular3D[lutPos, 2];
+
+							newDistance = vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2];
+							if( newDistance < distance )
+							{
+								distance2 = distance;
+
+								distance = newDistance;
+								xc = xi;
+								yc = yi;
+								zc = zi;
+							}
+							else if( newDistance < distance2 )
+							{
+								distance2 = newDistance;
+							}
+						}
+					}
+				}
+			break;
+
+			case CellularDistanceFunctionType.Manhattan:
+				for( int xi = xr - 1; xi <= xr + 1; ++xi )
+				{
+					for( int yi = yr - 1; yi <= yr + 1; ++yi )
+					{
+						for( int zi = zr - 1; zi <= zr + 1; ++zi )
+						{
+							lutPos = GetLUTIndex( xi, yi, zi );
+
+							vec[0] = xi - x + LUT_Cellular3D[lutPos, 0];
+							vec[1] = yi - y + LUT_Cellular3D[lutPos, 1];
+							vec[2] = zi - z + LUT_Cellular3D[lutPos, 2];
+
+							newDistance = FastAbs( vec[0] ) + FastAbs( vec[1] ) + FastAbs( vec[2] );
+							if( newDistance < distance )
+							{
+								distance2 = distance;
+
+								distance = newDistance;
+								xc = xi;
+								yc = yi;
+								zc = zi;
+							}
+							else if( newDistance < distance2 )
+							{
+								distance2 = newDistance;
+							}
+						}
+					}
+				}
+			break;
+
+			case CellularDistanceFunctionType.Natural:
+				for( int xi = xr - 1; xi <= xr + 1; ++xi )
+				{
+					for( int yi = yr - 1; yi <= yr + 1; ++yi )
+					{
+						for( int zi = zr - 1; zi <= zr + 1; ++zi )
+						{
+							lutPos = GetLUTIndex( xi, yi, zi );
+
+							vec[0] = xi - x + LUT_Cellular3D[lutPos, 0];
+							vec[1] = yi - y + LUT_Cellular3D[lutPos, 1];
+							vec[2] = zi - z + LUT_Cellular3D[lutPos, 2];
+
+							newDistance = ( FastAbs( vec[0] ) + FastAbs( vec[1] ) + FastAbs( vec[2] ) )*( vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2] );
+							if( newDistance < distance )
+							{
+								distance2 = distance;
+
+								distance = newDistance;
+								xc = xi;
+								yc = yi;
+								zc = zi;
+							}
+							else if( newDistance < distance2 )
+							{
+								distance2 = newDistance;
+							}
+						}
+					}
+				}
+			break;
+		}
+
+		switch( cellularReturnType )
+		{
+			case CellularReturnType.DistanceToEdge:
+			return ( Mathf.Sqrt( distance2 ) - Mathf.Sqrt( distance ) );
+
+			case CellularReturnType.DistanceToEdgeXValue:
+			return ( ( Mathf.Sqrt( distance2 ) - Mathf.Sqrt( distance ) )*NoiseBasic.LUT_Value[GetLUTIndex( xc, yc, zc )] );
+
+			case CellularReturnType.DistanceToEdgeSq:
+			return ( distance2 - distance );
+
+			case CellularReturnType.DistanceToEdgeSqXValue:
+			return ( ( distance2 - distance )*NoiseBasic.LUT_Value[GetLUTIndex( xc, yc, zc )] );
+
 			default:
 			return 0.0f;
 		}
 	}
 
-	float FastNoise::_Cellular2EdgeHQ( float x, float y )
+	/// <summary>
+	/// Return the cellular noise result to the edge (high-quality).
+	/// </summary>
+	/// <param name="x">x</param>
+	/// <param name="y">y</param>
+	/// <param name="z">z</param>
+	/// <returns>Cellular to edge high-quality noise result.</returns>
+	float CellularToEdgeHQ( float x, float y, float z )
 	{
 		int xr = FastRound( x );
 		int yr = FastRound( y );
+		int zr = FastRound( z );
 
-		float distance = 999999.f;
-		float distance2 = 999999.f;
+		float distance = float.MaxValue;
+		float distance2 = float.MaxValue;
 		float newDistance;
-		float vec[2];
-		int lutPos;
-		int xc = 0, yc = 0;
+		float[] vec = new float [3];
+		int lutPos = 0;
+		int xc = 0;
+		int yc = 0;
+		int zc = 0;
 
-		switch( m_cellularDistanceFunction )
+		switch( cellularDistanceFunction )
 		{
+			case CellularDistanceFunctionType.Euclidean:
+				for( int xi = xr - 2; xi <= xr + 2; ++xi )
+				{
+					for( int yi = yr - 2; yi <= yr + 2; ++yi )
+					{
+						for( int zi = zr - 2; zi <= zr + 2; ++zi )
+						{
+							lutPos = GetLUTIndex( xi, yi, zi );
+
+							vec[0] = xi - x + LUT_Cellular3D_HQ[lutPos, 0];
+							vec[1] = yi - y + LUT_Cellular3D_HQ[lutPos, 1];
+							vec[2] = zi - z + LUT_Cellular3D_HQ[lutPos, 2];
+
+							newDistance = vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2];
+
+							if( newDistance < distance )
+							{
+								distance2 = distance;
+
+								distance = newDistance;
+								xc = xi;
+								yc = yi;
+								zc = zi;
+							}
+							else if( newDistance < distance2 )
+							{
+								distance2 = newDistance;
+							}
+						}
+					}
+				}
+			break;
+
+			case CellularDistanceFunctionType.Manhattan:
+				for( int xi = xr - 2; xi <= xr + 2; ++xi )
+				{
+					for( int yi = yr - 2; yi <= yr + 2; ++yi )
+					{
+						for( int zi = zr - 2; zi <= zr + 2; ++zi )
+						{
+							lutPos = GetLUTIndex( xi, yi, zi );
+
+							vec[0] = xi - x + LUT_Cellular3D_HQ[lutPos, 0];
+							vec[1] = yi - y + LUT_Cellular3D_HQ[lutPos, 1];
+							vec[2] = zi - z + LUT_Cellular3D_HQ[lutPos, 2];
+
+							newDistance = FastAbs( vec[0] ) + FastAbs( vec[1] ) + FastAbs( vec[2] );
+							if( newDistance < distance )
+							{
+								distance2 = distance;
+
+								distance = newDistance;
+								xc = xi;
+								yc = yi;
+								zc = zi;
+							}
+							else if( newDistance < distance2 )
+							{
+								distance2 = newDistance;
+							}
+						}
+					}
+				}
+			break;
+
+			case CellularDistanceFunctionType.Natural:
+				for( int xi = xr - 2; xi <= xr + 2; ++xi )
+				{
+					for( int yi = yr - 2; yi <= yr + 2; ++yi )
+					{
+						for( int zi = zr - 2; zi <= zr + 2; ++zi )
+						{
+							lutPos = GetLUTIndex( xi, yi, zi );
+
+							vec[0] = xi - x + LUT_Cellular3D_HQ[lutPos, 0];
+							vec[1] = yi - y + LUT_Cellular3D_HQ[lutPos, 1];
+							vec[2] = zi - z + LUT_Cellular3D_HQ[lutPos, 2];
+
+							newDistance = ( FastAbs( vec[0] ) + FastAbs( vec[1] ) + FastAbs( vec[2] ) )*( vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2] );
+							if( newDistance < distance )
+							{
+								distance2 = distance;
+
+								distance = newDistance;
+								xc = xi;
+								yc = yi;
+								zc = zi;
+							}
+							else if( newDistance < distance2 )
+							{
+								distance2 = newDistance;
+							}
+						}
+					}
+				}
+			break;
+
 			default:
-			case Euclidean:
-			for( int xi = xr - 2; xi <= xr + 2; xi++ )
-			{
-				for( int yi = yr - 2; yi <= yr + 2; yi++ )
-				{
-					lutPos = CoordLUTIndex( m_seed, xi, yi );
-
-					vec[0] = xi - x + CELLULAR2D_HQ_LUT[lutPos][0];
-					vec[1] = yi - y + CELLULAR2D_HQ_LUT[lutPos][1];
-
-					newDistance = vec[0] * vec[0] + vec[1] * vec[1];
-
-					if( newDistance < distance )
-					{
-						distance2 = distance;
-
-						distance = newDistance;
-						xc = xi;
-						yc = yi;
-					}
-					else if( newDistance < distance2 )
-					{
-						distance2 = newDistance;
-					}
-				}
-			}
-			break;
-			case Manhattan:
-			for( int xi = xr - 2; xi <= xr + 2; xi++ )
-			{
-				for( int yi = yr - 2; yi <= yr + 2; yi++ )
-				{
-					lutPos = CoordLUTIndex( m_seed, xi, yi );
-
-					vec[0] = xi - x + CELLULAR2D_HQ_LUT[lutPos][0];
-					vec[1] = yi - y + CELLULAR2D_HQ_LUT[lutPos][1];
-
-					newDistance = FastAbs( vec[0] ) + FastAbs( vec[1] );
-
-					if( newDistance < distance )
-					{
-						distance2 = distance;
-
-						distance = newDistance;
-						xc = xi;
-						yc = yi;
-					}
-					else if( newDistance < distance2 )
-					{
-						distance2 = newDistance;
-					}
-				}
-			}
-			break;
-			case Natural:
-			for( int xi = xr - 2; xi <= xr + 2; xi++ )
-			{
-				for( int yi = yr - 2; yi <= yr + 2; yi++ )
-				{
-					lutPos = CoordLUTIndex( m_seed, xi, yi );
-
-					vec[0] = xi - x + CELLULAR2D_HQ_LUT[lutPos][0];
-					vec[1] = yi - y + CELLULAR2D_HQ_LUT[lutPos][1];
-
-					newDistance = ( FastAbs( vec[0] ) + FastAbs( vec[1] ) ) * ( vec[0] * vec[0] + vec[1] * vec[1] );
-
-					if( newDistance < distance )
-					{
-						distance2 = distance;
-
-						distance = newDistance;
-						xc = xi;
-						yc = yi;
-					}
-					else if( newDistance < distance2 )
-					{
-						distance2 = newDistance;
-					}
-				}
-			}
 			break;
 		}
 
-		switch( m_cellularReturnType )
+		switch( cellularReturnType )
 		{
-			case FastNoise::Distance2Edge:
-			return sqrtf( distance2 ) - sqrtf( distance );
-			case FastNoise::Distance2EdgeXValue:
-			return ( sqrtf( distance2 ) - sqrtf( distance ) ) * VAL_LUT[CoordLUTIndex( m_seed, xc, yc )];
+			case CellularReturnType.DistanceToEdge:
+				return( Mathf.Sqrt( distance2 ) - Mathf.Sqrt( distance ) );
 
-			case FastNoise::Distance2EdgeSq:
-			return distance2 - distance;
-			case FastNoise::Distance2EdgeSqXValue:
-			return ( distance2 - distance ) * VAL_LUT[CoordLUTIndex( m_seed, xc, yc )];
+			case CellularReturnType.DistanceToEdgeXValue:
+				return( ( Mathf.Sqrt( distance2 ) - Mathf.Sqrt( distance ) )*NoiseBasic.LUT_Value[GetLUTIndex( xc, yc, zc )] );
+
+			case CellularReturnType.DistanceToEdgeSq:
+				return( distance2 - distance );
+			
+			case CellularReturnType.DistanceToEdgeSqXValue:
+				return( ( distance2 - distance )*NoiseBasic.LUT_Value[GetLUTIndex( xc, yc, zc )] );
+
 			default:
-			return 0.0f;
+				return 0.0f;
 		}
 	}
 }
