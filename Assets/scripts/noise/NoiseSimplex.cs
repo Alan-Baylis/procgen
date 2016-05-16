@@ -5,14 +5,13 @@
 /// 
 /// Based on the implementation by Jordan Peck: https://github.com/Auburns/FastNoise
 /// </summary>
+using UnityEngine;
 
 /// <summary>
 /// NoiseSimplex Class Definition.
 /// 
 /// Simplex noise class.
 /// </summary>
-using UnityEngine;
-
 public class NoiseSimplex : Noise
 {
 	public static readonly float[,] LUT_Simplex2D =
