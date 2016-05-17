@@ -7,7 +7,7 @@
 Procedural generation algorithms and implementations (using Unity).
 
 Currently includes:
- - Fast noise library (based on the work done here: https://github.com/Auburns/FastNoise).
+ - Ported fast noise library to C# (based on the work done here: https://github.com/Auburns/FastNoise).
 
 Roadmap:
  - Where we're going, there are no roads.
