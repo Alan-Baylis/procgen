@@ -1,8 +1,8 @@
 # procgen
-## Author: Trent Polack
-### Website A: http://trent-polack.com
-### Website B: http://joy-machine.com
-#### README Last Updated: 5/16/16
+### Author: Trent Polack
+#### Website A: http://trent-polack.com
+#### Website B: http://joy-machine.com
+##### README Last Updated: 5/16/16
 
 Procedural generation algorithms and implementations (using Unity).
 
